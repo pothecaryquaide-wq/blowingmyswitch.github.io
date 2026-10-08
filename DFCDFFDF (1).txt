@@ -1,0 +1,110 @@
+// ===== CONFIG =====
+const WORLD_WIDTH = 4000;   // pixels
+const WORLD_HEIGHT = 4000;  // pixels
+const TILE_SIZE = 50;       // pixels
+const MIN_BASE_DISTANCE = 1000; // pixels between bases
+
+// ===== WORLD GENERATION =====
+const tiles = []; // 2D array of tile objects
+
+function randomTileType() {
+  const r = Math.random();
+  if (r < 0.5) return "grass";
+  if (r < 0.65) return "tree";
+  if (r < 0.8) return "rock";
+  if (r < 0.9) return "ore";
+  return "water";
+}
+
+function generateWorld() {
+  const cols = Math.floor(WORLD_WIDTH / TILE_SIZE);
+  const rows = Math.floor(WORLD_HEIGHT / TILE_SIZE);
+
+  for (let y = 0; y < rows; y++) {
+    tiles[y] = [];
+    for (let x = 0; x < cols; x++) {
+      tiles[y][x] = {
+        x: x * TILE_SIZE,
+        y: y * TILE_SIZE,
+        type: randomTileType(),
+        hasResource: ["tree", "rock", "ore"].includes(randomTileType())
+      };
+    }
+  }
+}
+
+generateWorld();
+
+// ===== PLAYERS & BASES =====
+const players = [];
+const bases = [];
+
+function distance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function randomSpawnPoint() {
+  return {
+    x: Math.random() * WORLD_WIDTH,
+    y: Math.random() * WORLD_HEIGHT
+  };
+}
+
+function spawnPlayer(id) {
+  let pos;
+  let tries = 0;
+
+  do {
+    pos = randomSpawnPoint();
+    tries++;
+    // ensure far from existing players
+  } while (
+    players.some(p => distance(p, pos) < MIN_BASE_DISTANCE) &&
+    tries < 1000
+  );
+
+  const player = { id, x: pos.x, y: pos.y };
+  players.push(player);
+  return player;
+}
+
+// spawn two players
+const player1 = spawnPlayer("player1");
+const player2 = spawnPlayer("player2");
+
+// ===== BASE PLACEMENT =====
+function canPlaceBase(player, x, y) {
+  const newBase = { x, y };
+  // too close to other bases?
+  if (bases.some(b => distance(b, newBase) < MIN_BASE_DISTANCE)) return false;
+  // too close to other players' bases zone?
+  return true;
+}
+
+function placeBase(player, x, y) {
+  if (!canPlaceBase(player, x, y)) {
+    console.log("Too close to another base (within 1000px).");
+    return;
+  }
+  bases.push({ ownerId: player.id, x, y });
+  console.log("Base placed for", player.id);
+}
+
+// ===== RESOURCE RESPAWN LOOP =====
+function respawnResources() {
+  for (let row of tiles) {
+    for (let tile of row) {
+      if (!tile.hasResource && ["tree", "rock", "ore"].includes(tile.type)) {
+        // small chance to respawn
+        if (Math.random() < 0.001) {
+          tile.hasResource = true;
+        }
+      }
+    }
+  }
+}
+
+// call every second
+setInterval(respawnResources, 1000);
